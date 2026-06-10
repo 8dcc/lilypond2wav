@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 
-from lilypond2wav.parser import Event, NoteEvent, RestEvent
+from parser import Event, NoteEvent, RestEvent
 
 
 class Synthesizer(ABC):

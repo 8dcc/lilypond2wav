@@ -7,7 +7,7 @@ import ly.lex
 import ly.lex.lilypond as lyl
 import ly.pitch
 
-from lilypond2wav.notes import pitch_to_freq
+from notes import pitch_to_freq
 
 
 @dataclass

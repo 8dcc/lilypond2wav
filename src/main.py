@@ -4,9 +4,9 @@ import argparse
 import sys
 from pathlib import Path
 
-from lilypond2wav.parser import find_tempo, parse
-from lilypond2wav.synth import SineSynthesizer
-from lilypond2wav.wav_io import SAMPLE_RATE, write_wav
+from parser import find_tempo, parse
+from synth import SineSynthesizer
+from wav_io import SAMPLE_RATE, write_wav
 
 _DEFAULT_BPM = 120
 
