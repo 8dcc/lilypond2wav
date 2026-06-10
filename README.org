@@ -1,0 +1,23 @@
+#+TITLE: lilypond2wav
+#+AUTHOR: 8dcc
+
+Converts a [[https://lilypond.org][LilyPond]] source file to a WAV audio file by synthesizing its notes as
+sine waves.
+
+* Dependencies
+
+You will need =python-ly= and =numpy=:
+
+#+begin_src bash
+pip install python-ly numpy
+#+end_src
+
+* Usage
+
+The basic usage is:
+
+#+begin_src bash
+python src/main.py INPUT.ly
+#+end_src
+
+For more options, run the script with =--help=.
