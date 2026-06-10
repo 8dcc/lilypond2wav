@@ -14,16 +14,23 @@ class Synthesizer(ABC):
         """
         ...
 
-    def synthesize(self, events: list[Event],
-                   sample_rate: int) -> np.ndarray:
+    def synthesize(self, events: list[Event], sample_rate: int,
+                   gate: float = 1.0) -> np.ndarray:
         """
-        Return concatenated float32 PCM for all events.
+        Return concatenated float32 PCM for all events. 'gate' controls
+        what fraction of each note's duration is sounded (0.0-1.0); the
+        remainder is silence.
         """
         chunks = []
         for event in events:
             if isinstance(event, NoteEvent):
+                note_dur = event.duration * gate
+                rest_dur = event.duration * (1.0 - gate)
                 chunks.append(self.synthesize_note(
-                    event.frequency, event.duration, sample_rate))
+                    event.frequency, note_dur, sample_rate))
+                if rest_dur > 0.0:
+                    chunks.append(np.zeros(
+                        int(rest_dur * sample_rate), dtype=np.float32))
             else:
                 n = int(event.duration * sample_rate)
                 chunks.append(np.zeros(n, dtype=np.float32))

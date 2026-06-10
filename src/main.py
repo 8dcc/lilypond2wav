@@ -21,9 +21,16 @@ def main() -> None:
     parser.add_argument('-o', '--output', metavar='OUTPUT.wav',
                         default=None,
                         help='Output WAV path (default: input stem + .wav)')
+    parser.add_argument('-g', '--gate', type=float, default=1.0,
+                        help='Note gate: fraction of each note that sounds '
+                             '(0.0-1.0, default: 1.0)')
     args = parser.parse_args()
 
     input_path = Path(args.input)
+    if args.gate <= 0.0 or args.gate > 1.0:
+        print('error: gate must be in the range (0.0, 1.0]', file=sys.stderr)
+        sys.exit(1)
+
     if not input_path.exists():
         print(f'error: file not found: {input_path}', file=sys.stderr)
         sys.exit(1)
@@ -50,7 +57,7 @@ def main() -> None:
         print('warning: no notes found, writing silent WAV', file=sys.stderr)
 
     synth = SineSynthesizer()
-    samples = synth.synthesize(events, SAMPLE_RATE)
+    samples = synth.synthesize(events, SAMPLE_RATE, gate=args.gate)
     try:
         write_wav(samples, str(output_path))
     except OSError as e:
