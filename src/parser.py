@@ -69,8 +69,8 @@ def _strip(tokens: list) -> list:
     """
     Remove whitespace and comment tokens.
     """
-    return [t for t in tokens
-            if not isinstance(t, (ly.lex.Space, ly.lex.Comment))]
+    skip = (ly.lex.Space, ly.lex.Comment)
+    return [t for t in tokens if not isinstance(t, skip)]
 
 
 def _read_anchor(tokens: list, i: int,
