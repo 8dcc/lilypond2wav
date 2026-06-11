@@ -5,10 +5,15 @@ import sys
 from pathlib import Path
 
 from parser import find_tempo, parse
-from synth import SineSynthesizer
+from synth import HarmonicSynthesizer, SineSynthesizer
 from wav_io import SAMPLE_RATE, write_wav
 
 _DEFAULT_BPM = 120
+
+_SYNTHESIZERS = {
+    'harmonic': HarmonicSynthesizer,
+    'sine': SineSynthesizer,
+}
 
 
 def main() -> None:
@@ -24,6 +29,9 @@ def main() -> None:
     parser.add_argument('-g', '--gate', type=float, default=1.0,
                         help='Note gate: fraction of each note that sounds '
                              '(0.0-1.0, default: 1.0)')
+    parser.add_argument('-s', '--synth', choices=sorted(_SYNTHESIZERS),
+                        default='harmonic',
+                        help='Synthesizer to use (default: harmonic)')
     args = parser.parse_args()
 
     input_path = Path(args.input)
@@ -56,7 +64,7 @@ def main() -> None:
     if not events:
         print('warning: no notes found, writing silent WAV', file=sys.stderr)
 
-    synth = SineSynthesizer()
+    synth = _SYNTHESIZERS[args.synth]()
     samples = synth.synthesize(events, SAMPLE_RATE, gate=args.gate)
     try:
         write_wav(samples, str(output_path))
