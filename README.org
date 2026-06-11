@@ -1,8 +1,7 @@
 #+TITLE: lilypond2wav
 #+AUTHOR: 8dcc
 
-Converts a [[https://lilypond.org][LilyPond]] source file to a WAV audio file by synthesizing its notes as
-sine waves.
+Converts a [[https://lilypond.org][LilyPond]] source file to a WAV audio file by synthesizing its notes.
 
 * Dependencies
 
@@ -20,4 +19,12 @@ The basic usage is:
 python src/main.py INPUT.ly
 #+end_src
 
-For more options, run the script with =--help=.
+The following options are supported:
+
+| Short | Long       | Description                                          |
+|-------+------------+------------------------------------------------------|
+| =-h=  | =--help=   | Show the help message and exit.                      |
+| =-o=  | =--output= | Output WAV path (default: input stem + =.wav=).      |
+| =-s=  | =--synth=  | Synthesizer: =harmonic= (default) or =sine=.         |
+| =-b=  | =--bpm=    | Tempo in BPM (overrides =\tempo= in the input file). |
+| =-g=  | =--gate=   | Fraction of each note that sounds (default: 1.0).    |
