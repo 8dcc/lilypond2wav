@@ -62,6 +62,7 @@ _IGNORABLE = (
     lyl.CloseBracket,   # } after \header / \score
     lyl.HeaderVariable, # tagline, title, etc.
     lyl.KeySignatureMode,  # \major, \minor
+    lyl.Beam,           # [ and ] (manual beams, engraving only)
 )
 
 
