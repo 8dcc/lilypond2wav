@@ -42,20 +42,20 @@ _IGNORABLE = (
     lyl.StringQuotedStart,
     lyl.StringQuotedEnd,
     lyl.String,
-    lyl.Keyword,        # \version, \language (handled above), etc.
-    lyl.Command,        # \time, \bar, \mark, etc.
-    lyl.Fraction,       # 4/4 after \time
-    lyl.Header,         # \header
-    lyl.Score,          # \score
-    lyl.New,            # \new
-    lyl.ContextName,    # Staff, Voice, etc.
-    lyl.Clef,           # \clef
-    lyl.ClefSpecifier,  # treble, bass, etc.
-    lyl.OpenBracket,    # { after \header / \score
-    lyl.CloseBracket,   # } after \header / \score
-    lyl.HeaderVariable, # tagline, title, etc.
+    lyl.Keyword,           # \version, \language (handled above), etc.
+    lyl.Command,           # \time, \bar, \mark, etc.
+    lyl.Fraction,          # 4/4 after \time
+    lyl.Header,            # \header
+    lyl.Score,             # \score
+    lyl.New,               # \new
+    lyl.ContextName,       # Staff, Voice, etc.
+    lyl.Clef,              # \clef
+    lyl.ClefSpecifier,     # treble, bass, etc.
+    lyl.OpenBracket,       # { after \header / \score
+    lyl.CloseBracket,      # } after \header / \score
+    lyl.HeaderVariable,    # tagline, title, etc.
     lyl.KeySignatureMode,  # \major, \minor
-    lyl.Beam,           # [ and ] (manual beams, engraving only)
+    lyl.Beam,              # [ and ] (manual beams, engraving only)
 )
 
 
@@ -188,8 +188,8 @@ def parse(text: str, bpm: int) -> list[NoteEvent]:
 
         elif isinstance(t, lyl.Tempo):
             # skip: Length EqualSign IntegerValue
-            while i < len(tokens) and isinstance(tokens[i],
-                    (lyl.Length, lyl.EqualSign, lyl.IntegerValue)):
+            while i < len(tokens) and isinstance(tokens[i], (
+                    lyl.Length, lyl.EqualSign, lyl.IntegerValue)):
                 i += 1
 
         elif isinstance(t, lyl.SequentialEnd) and in_relative:

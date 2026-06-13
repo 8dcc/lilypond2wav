@@ -8,9 +8,9 @@ from parser import find_tempo, parse
 from synth import HarmonicSynthesizer, SineSynthesizer
 from wav_io import SAMPLE_RATE, write_wav
 
-_DEFAULT_BPM = 120
+DEFAULT_BPM = 120
 
-_SYNTHESIZERS = {
+SYNTHESIZERS = {
     'harmonic': HarmonicSynthesizer,
     'sine': SineSynthesizer,
 }
@@ -29,7 +29,7 @@ def main() -> None:
     parser.add_argument('-g', '--gate', type=float, default=1.0,
                         help='Note gate: fraction of each note that sounds '
                              '(0.0-1.0, default: 1.0)')
-    parser.add_argument('-s', '--synth', choices=sorted(_SYNTHESIZERS),
+    parser.add_argument('-s', '--synth', choices=sorted(SYNTHESIZERS),
                         default='harmonic',
                         help='Synthesizer to use (default: harmonic)')
     args = parser.parse_args()
@@ -48,7 +48,7 @@ def main() -> None:
     if args.bpm is not None:
         bpm = args.bpm
     else:
-        bpm = find_tempo(text) or _DEFAULT_BPM
+        bpm = find_tempo(text) or DEFAULT_BPM
 
     if args.output:
         output_path = Path(args.output)
@@ -64,7 +64,7 @@ def main() -> None:
     if not notes:
         print('warning: no notes found, writing silent WAV', file=sys.stderr)
 
-    synth = _SYNTHESIZERS[args.synth]()
+    synth = (SYNTHESIZERS[args.synth])()
     samples = synth.synthesize(notes, SAMPLE_RATE, gate=args.gate)
     try:
         write_wav(samples, str(output_path))
