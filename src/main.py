@@ -56,16 +56,16 @@ def main() -> None:
         output_path = input_path.with_suffix('.wav')
 
     try:
-        events = parse(text, bpm)
+        notes = parse(text, bpm)
     except ValueError as e:
         print(f'error: {e}', file=sys.stderr)
         sys.exit(1)
 
-    if not events:
+    if not notes:
         print('warning: no notes found, writing silent WAV', file=sys.stderr)
 
     synth = _SYNTHESIZERS[args.synth]()
-    samples = synth.synthesize(events, SAMPLE_RATE, gate=args.gate)
+    samples = synth.synthesize(notes, SAMPLE_RATE, gate=args.gate)
     try:
         write_wav(samples, str(output_path))
     except OSError as e:
@@ -73,7 +73,7 @@ def main() -> None:
               file=sys.stderr)
         sys.exit(1)
 
-    print(f'written {output_path}  ({bpm} BPM, {len(events)} events, '
+    print(f'written {output_path}  ({bpm} BPM, {len(notes)} notes, '
           f'{samples.shape[0] / SAMPLE_RATE:.2f}s)')
 
 

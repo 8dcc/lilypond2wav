@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 
-from parser import Event, NoteEvent, RestEvent
+from parser import NoteEvent
 
 
 class Synthesizer(ABC):
@@ -14,30 +14,29 @@ class Synthesizer(ABC):
         """
         ...
 
-    def synthesize(self, events: list[Event], sample_rate: int,
+    def synthesize(self, notes: list[NoteEvent], sample_rate: int,
                    gate: float = 1.0) -> np.ndarray:
         """
-        Return concatenated float32 PCM for all events. 'gate' controls
-        what fraction of each note's duration is sounded (0.0-1.0); the
-        remainder is silence.
+        Return float32 PCM for all notes mixed into a single buffer.
+        'gate' controls the fraction of each note's duration that sounds
+        (0.0-1.0); the remainder is silence.
         """
-        chunks = []
-        for event in events:
-            if isinstance(event, NoteEvent):
-                note_dur = event.duration * gate
-                rest_dur = event.duration * (1.0 - gate)
-                chunks.append(self.synthesize_note(
-                    event.frequency, note_dur, sample_rate))
-                if rest_dur > 0.0:
-                    chunks.append(np.zeros(
-                        int(rest_dur * sample_rate), dtype=np.float32))
-            else:
-                n = int(event.duration * sample_rate)
-                chunks.append(np.zeros(n, dtype=np.float32))
-
-        if not chunks:
+        if not notes:
             return np.array([], dtype=np.float32)
-        return np.concatenate(chunks)
+
+        total_s = max(n.start_s + n.duration_s for n in notes)
+        output = np.zeros(int(total_s * sample_rate), dtype=np.float32)
+
+        for note in notes:
+            chunk = self.synthesize_note(
+                note.frequency,
+                note.duration_s * gate,
+                sample_rate
+            )
+            start = int(note.start_s * sample_rate)
+            output[start:start + len(chunk)] += chunk
+
+        return output
 
 
 class SineSynthesizer(Synthesizer):

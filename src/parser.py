@@ -12,16 +12,9 @@ from notes import pitch_to_freq
 
 @dataclass
 class NoteEvent:
-    frequency: float  # Hz
-    duration: float   # seconds
-
-
-@dataclass
-class RestEvent:
-    duration: float   # seconds
-
-
-Event = NoteEvent | RestEvent
+    frequency: float    # Hz
+    start_s: float      # absolute start time in seconds
+    duration_s: float   # full duration in seconds (before gate)
 
 
 # Map language names not known to ly.pitch to their canonical equivalent.
@@ -125,21 +118,38 @@ def _read_length_dot(tokens: list, i: int, current_length: int,
     return current_length, dotted, i
 
 
-def parse(text: str, bpm: int) -> list[Event]:
+def _try_extend(notes: list, freq: float,
+                at_s: float, by_s: float) -> bool:
     """
-    Parse the specified LilyPond 'text' and return events with durations
-    in seconds. 'bpm' is beats per minute (quarter note = 1 beat).
+    Search 'notes' in reverse for one ending at 'at_s' with a
+    matching 'freq', extending its duration by 'by_s' if found.
+    """
+    for note in reversed(notes):
+        if note.start_s + note.duration_s < at_s - 1e-9:
+            break
+        if abs(note.frequency - freq) < 0.01:
+            note.duration_s += by_s
+            return True
+    return False
+
+
+def parse(text: str, bpm: int) -> list[NoteEvent]:
+    """
+    Parse the specified LilyPond 'text' and return a flat list of
+    notes with absolute start times. 'bpm' is beats per minute
+    (quarter note = 1 beat). Silence is implicit (absence of notes).
     """
     spb = 60.0 / bpm  # seconds per beat
 
     pitch_reader = ly.pitch.pitchReader('nederlands')
-    events: list[Event] = []
+    notes: list[NoteEvent] = []
 
     in_relative = False
     relative_anchor: ly.pitch.Pitch | None = None
     current_length = 4
     dotted = False
     tie_pending = False
+    current_time_s = 0.0
 
     tokens = _strip(list(ly.lex.state('lilypond').tokens(text)))
     i = 0
@@ -210,27 +220,25 @@ def parse(text: str, bpm: int) -> list[Event]:
                 alter = p.alter
 
             freq = pitch_to_freq(note_idx, alter, octave)
-            dur = (4.0 / current_length) * (1.5 if dotted else 1.0)
-            dur_s = dur * spb
+            dur_s = (4.0 / current_length) * (1.5 if dotted else 1.0) * spb
 
             if tie_pending:
                 tie_pending = False
-                if (events and isinstance(events[-1], NoteEvent)
-                        and abs(events[-1].frequency - freq) < 0.01):
-                    events[-1].duration += dur_s
-                    continue
-                else:
+                if not _try_extend(notes, freq, current_time_s, dur_s):
                     print('warning: tie between different pitches '
                           '(slur?), treating as separate notes',
                           file=sys.stderr)
+                    notes.append(NoteEvent(freq, current_time_s, dur_s))
+            else:
+                notes.append(NoteEvent(freq, current_time_s, dur_s))
 
-            events.append(NoteEvent(freq, dur_s))
+            current_time_s += dur_s
 
         elif isinstance(t, lyl.Rest):
             current_length, dotted, i = _read_length_dot(
                 tokens, i, current_length, dotted)
-            dur = (4.0 / current_length) * (1.5 if dotted else 1.0)
-            events.append(RestEvent(dur * spb))
+            dur_s = (4.0 / current_length) * (1.5 if dotted else 1.0) * spb
+            current_time_s += dur_s
 
         elif isinstance(t, lyl.Tie):
             tie_pending = True
@@ -239,7 +247,7 @@ def parse(text: str, bpm: int) -> list[Event]:
             print(f'warning: skipping unsupported token '
                   f'{type(t).__name__} "{t}"', file=sys.stderr)
 
-    return events
+    return notes
 
 
 def find_tempo(text: str) -> int | None:
