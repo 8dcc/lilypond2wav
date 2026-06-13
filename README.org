@@ -39,3 +39,32 @@ The following options are supported:
 | =-s=  | =--synth=  | Synthesizer: =harmonic= (default) or =sine=.         |
 | =-b=  | =--bpm=    | Tempo in BPM (overrides =\tempo= in the input file). |
 | =-g=  | =--gate=   | Fraction of each note that sounds (default: 1.0).    |
+
+* Architecture
+
+The following diagram shows the module structure of the project.
+
+#+begin_src mermaid
+graph TD
+  main --> parser
+  parser --> notes
+
+  main -.-> utils
+  parser -.-> utils
+
+  main --> synth
+  synth --> SineSynthesizer
+  synth --> HarmonicSynthesizer
+
+  main --> wav_io
+#+end_src
+
+The following diagram shows the high-level data flow at runtime.
+
+#+begin_src mermaid
+flowchart LR
+  file_in([INPUT.ly]) -->|text| parser
+  parser -->|NoteEvent list| synth
+  synth -->|PCM samples| wav_io
+  wav_io --> file_out([OUTPUT.wav])
+#+end_src
