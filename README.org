@@ -3,6 +3,17 @@
 
 Converts a [[https://lilypond.org][LilyPond]] source file to a WAV audio file by synthesizing its notes.
 
+* Features
+
+- Parses a subset of LilyPond notation: single notes, chords, rests, dots,
+  ties, relative mode, key signatures, and multiple languages.
+- Two built-in synthesizers: a sine wave synthesizer and an additive harmonic
+  synthesizer (default) with an ADSR envelope for a warmer tone.
+- Tempo can be read from =\tempo= directives in the source file or overridden
+  from the command line.
+- Gate control (=-g=) shortens each note's sounding duration, producing a
+  staccato-like effect.
+
 * Dependencies
 
 You will need =python-ly= and =numpy=:
