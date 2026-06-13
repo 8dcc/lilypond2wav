@@ -118,6 +118,90 @@ def _read_length_dot(tokens: list, i: int, current_length: int,
     return current_length, dotted, i
 
 
+def _read_pitch(tokens: list, i: int, note_token,
+                pitch_reader) -> tuple[tuple | None, int]:
+    """
+    Read the pitch of 'note_token', consuming any following Octave
+    tokens. Returns ((note_idx, alter, octave), new_i), or (None, i)
+    if the note name is not recognised.
+    """
+    result = pitch_reader(str(note_token))
+    if result is None:
+        return None, i
+
+    note_idx, alter = result
+    octave = 0
+    while i < len(tokens) and isinstance(tokens[i], lyl.Octave):
+        s = str(tokens[i])
+        octave += s.count("'") - s.count(",")
+        i += 1
+
+    return (note_idx, alter, octave), i
+
+
+def _read_chord_pitches(tokens: list, i: int,
+                        pitch_reader) -> tuple[list, int]:
+    """
+    Consume tokens from ChordStart up to and including ChordEnd.
+    Returns (pitches, new_i); each pitch is (note_idx, alter, octave).
+    """
+    pitches = []
+    while i < len(tokens) and not isinstance(tokens[i], lyl.ChordEnd):
+        tok = tokens[i]
+        i += 1
+        if isinstance(tok, lyl.Note):
+            pitch, i = _read_pitch(tokens, i, tok, pitch_reader)
+            if pitch is None:
+                print(f'warning: unrecognised note name "{tok}"',
+                      file=sys.stderr)
+            else:
+                pitches.append(pitch)
+        elif not isinstance(tok, _IGNORABLE):
+            print(f'warning: skipping unsupported token '
+                  f'{type(tok).__name__} "{tok}" in chord',
+                  file=sys.stderr)
+
+    if i < len(tokens):
+        i += 1  # consume ChordEnd
+
+    return pitches, i
+
+
+def _collect_pitches(tokens: list, i: int, t,
+                     pitch_reader) -> tuple[list, int]:
+    """
+    Return (pitches, new_i) for a Note or ChordStart token 't'.
+    Each pitch is (note_idx, alter, octave).
+    """
+    if isinstance(t, lyl.ChordStart):
+        return _read_chord_pitches(tokens, i, pitch_reader)
+    pitch, i = _read_pitch(tokens, i, t, pitch_reader)
+    return ([pitch] if pitch is not None else []), i
+
+
+def _resolve_relative(pitches: list, anchor: ly.pitch.Pitch
+                      ) -> tuple[list, ly.pitch.Pitch]:
+    """
+    Resolve relative-mode 'pitches' against 'anchor'. The new anchor
+    is the first resolved pitch, matching LilyPond semantics for both
+    single notes and chords.
+    """
+    resolved = []
+    reference = anchor
+    for note_idx, alter, octave in pitches:
+        p = ly.pitch.Pitch(note_idx, alter, octave)
+        p.makeAbsolute(reference)
+        resolved.append((p.note, p.alter, p.octave))
+        reference = p
+
+    new_anchor = anchor
+    if resolved:
+        note_idx, alter, octave = resolved[0]
+        new_anchor = ly.pitch.Pitch(note_idx, alter, octave)
+
+    return resolved, new_anchor
+
+
 def _try_extend(notes: list, freq: float,
                 at_s: float, by_s: float) -> bool:
     """
@@ -196,41 +280,40 @@ def parse(text: str, bpm: int) -> list[NoteEvent]:
             in_relative = False
             relative_anchor = None
 
-        elif isinstance(t, lyl.Note):
-            result = pitch_reader(str(t))
-            if result is None:
-                print(f'warning: unrecognised note name "{t}"', file=sys.stderr)
+        elif isinstance(t, (lyl.Note, lyl.ChordStart)):
+            pitches, i = _collect_pitches(tokens, i, t, pitch_reader)
+            if not pitches:
+                if isinstance(t, lyl.Note):
+                    print(f'warning: unrecognised note name "{t}"',
+                          file=sys.stderr)
+                else:
+                    print('warning: empty chord, skipping', file=sys.stderr)
                 continue
-
-            note_idx, alter = result
-            octave = 0
-            while i < len(tokens) and isinstance(tokens[i], lyl.Octave):
-                s = str(tokens[i])
-                octave += s.count("'") - s.count(",")
-                i += 1
 
             current_length, dotted, i = _read_length_dot(
                 tokens, i, current_length, dotted)
 
             if in_relative and relative_anchor is not None:
-                p = ly.pitch.Pitch(note_idx, alter, octave)
-                p.makeAbsolute(relative_anchor)
-                relative_anchor = p.copy()
-                octave = p.octave
-                alter = p.alter
+                pitches, relative_anchor = _resolve_relative(
+                    pitches, relative_anchor)
 
-            freq = pitch_to_freq(note_idx, alter, octave)
+            freqs = [pitch_to_freq(n, a, o) for n, a, o in pitches]
             dur_s = (4.0 / current_length) * (1.5 if dotted else 1.0) * spb
 
             if tie_pending:
                 tie_pending = False
-                if not _try_extend(notes, freq, current_time_s, dur_s):
+                unextended = [f for f in freqs
+                              if not _try_extend(notes, f,
+                                                 current_time_s, dur_s)]
+                if unextended:
                     print('warning: tie between different pitches '
                           '(slur?), treating as separate notes',
                           file=sys.stderr)
-                    notes.append(NoteEvent(freq, current_time_s, dur_s))
+                    notes.extend(NoteEvent(f, current_time_s, dur_s)
+                                 for f in unextended)
             else:
-                notes.append(NoteEvent(freq, current_time_s, dur_s))
+                notes.extend(NoteEvent(f, current_time_s, dur_s)
+                             for f in freqs)
 
             current_time_s += dur_s
 
