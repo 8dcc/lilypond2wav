@@ -16,7 +16,6 @@
 # this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import re
-import sys
 from dataclasses import dataclass
 from fractions import Fraction
 
@@ -25,6 +24,7 @@ import ly.lex.lilypond as lyl
 import ly.pitch
 
 from notes import pitch_to_freq
+from utils import wrn
 
 
 @dataclass
@@ -128,8 +128,7 @@ def _read_length_dot(tokens: list, i: int, current_length: int,
         dotted = True
         i += 1
         if i < len(tokens) and isinstance(tokens[i], lyl.Dot):
-            print('warning: double-dotted note not supported, '
-                  'using single dot', file=sys.stderr)
+            wrn('double-dotted note not supported, using single dot')
             i += 1
 
     return current_length, dotted, i
@@ -169,14 +168,12 @@ def _read_chord_pitches(tokens: list, i: int,
         if isinstance(tok, lyl.Note):
             pitch, i = _read_pitch(tokens, i, tok, pitch_reader)
             if pitch is None:
-                print(f'warning: unrecognised note name "{tok}"',
-                      file=sys.stderr)
+                wrn(f'unrecognised note name "{tok}"')
             else:
                 pitches.append(pitch)
         elif not isinstance(tok, _IGNORABLE):
-            print(f'warning: skipping unsupported token '
-                  f'{type(tok).__name__} "{tok}" in chord',
-                  file=sys.stderr)
+            wrn(f'skipping unsupported token '
+                f'{type(tok).__name__} "{tok}" in chord')
 
     if i < len(tokens):
         i += 1  # consume ChordEnd
@@ -301,10 +298,9 @@ def parse(text: str, bpm: int) -> list[NoteEvent]:
             pitches, i = _collect_pitches(tokens, i, t, pitch_reader)
             if not pitches:
                 if isinstance(t, lyl.Note):
-                    print(f'warning: unrecognised note name "{t}"',
-                          file=sys.stderr)
+                    wrn(f'unrecognised note name "{t}"')
                 else:
-                    print('warning: empty chord, skipping', file=sys.stderr)
+                    wrn('empty chord, skipping')
                 continue
 
             current_length, dotted, i = _read_length_dot(
@@ -323,9 +319,8 @@ def parse(text: str, bpm: int) -> list[NoteEvent]:
                               if not _try_extend(notes, f,
                                                  current_time_s, dur_s)]
                 if unextended:
-                    print('warning: tie between different pitches '
-                          '(slur?), treating as separate notes',
-                          file=sys.stderr)
+                    wrn('tie between different pitches '
+                        '(slur?), treating as separate notes')
                     notes.extend(NoteEvent(f, current_time_s, dur_s)
                                  for f in unextended)
             else:
@@ -344,8 +339,7 @@ def parse(text: str, bpm: int) -> list[NoteEvent]:
             tie_pending = True
 
         elif not isinstance(t, _IGNORABLE):
-            print(f'warning: skipping unsupported token '
-                  f'{type(t).__name__} "{t}"', file=sys.stderr)
+            wrn(f'skipping unsupported token {type(t).__name__} "{t}"')
 
     return notes
 

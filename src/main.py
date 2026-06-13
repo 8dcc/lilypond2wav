@@ -23,6 +23,7 @@ from pathlib import Path
 
 from parser import find_tempo, parse
 from synth import HarmonicSynthesizer, SineSynthesizer
+from utils import err, log, wrn
 from wav_io import SAMPLE_RATE, write_wav
 
 DEFAULT_BPM = 120
@@ -53,11 +54,11 @@ def main() -> None:
 
     input_path = Path(args.input)
     if args.gate <= 0.0 or args.gate > 1.0:
-        print('error: gate must be in the range (0.0, 1.0]', file=sys.stderr)
+        err('gate must be in the range (0.0, 1.0]')
         sys.exit(1)
 
     if not input_path.exists():
-        print(f'error: file not found: {input_path}', file=sys.stderr)
+        err(f'file not found: {input_path}')
         sys.exit(1)
 
     text = input_path.read_text()
@@ -75,23 +76,22 @@ def main() -> None:
     try:
         notes = parse(text, bpm)
     except ValueError as e:
-        print(f'error: {e}', file=sys.stderr)
+        err(str(e))
         sys.exit(1)
 
     if not notes:
-        print('warning: no notes found, writing silent WAV', file=sys.stderr)
+        wrn('no notes found, writing silent WAV')
 
     synth = (SYNTHESIZERS[args.synth])()
     samples = synth.synthesize(notes, SAMPLE_RATE, gate=args.gate)
     try:
         write_wav(samples, str(output_path))
     except OSError as e:
-        print(f'error: cannot write "{output_path}": {e.strerror}',
-              file=sys.stderr)
+        err(f'cannot write "{output_path}": {e.strerror}')
         sys.exit(1)
 
-    print(f'written {output_path}  ({bpm} BPM, {len(notes)} notes, '
-          f'{samples.shape[0] / SAMPLE_RATE:.2f}s)')
+    log(f'written {output_path}  ({bpm} BPM, {len(notes)} notes, '
+        f'{samples.shape[0] / SAMPLE_RATE:.2f}s)')
 
 
 if __name__ == '__main__':
