@@ -32,13 +32,16 @@ python src/main.py INPUT.ly
 
 The following options are supported:
 
-| Short | Long       | Description                                          |
-|-------+------------+------------------------------------------------------|
-| =-h=  | =--help=   | Show the help message and exit.                      |
-| =-o=  | =--output= | Output WAV path (default: input stem + =.wav=).      |
-| =-s=  | =--synth=  | Synthesizer: =harmonic= (default) or =sine=.         |
-| =-b=  | =--bpm=    | Tempo in BPM (overrides =\tempo= in the input file). |
-| =-g=  | =--gate=   | Fraction of each note that sounds (default: 1.0).    |
+| Short | Long     | Description                                        |
+|-------+----------+----------------------------------------------------|
+| =-h=    | =--help=   | Show the help message and exit.                    |
+| =-o=    | =--output= | Output WAV path (default: input stem + =.wav=).      |
+| =-s=    | =--synth=  | Synthesizer: =harmonic= (default) or =sine=.           |
+| =-b=    | =--bpm=    | Tempo in BPM (overrides =\tempo= in the input file). |
+| =-g=    | =--gate=   | Fraction of each note that sounds (default: 1.0).  |
+
+Also note that the =LILYPOND2WAV_DEBUG= environment variable can be defined to
+enable debug logging.
 
 * Architecture
 
