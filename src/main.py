@@ -23,7 +23,7 @@ from pathlib import Path
 
 from parser import find_tempo, parse
 from synth import HarmonicSynthesizer, SineSynthesizer
-from utils import err, log, wrn
+from utils import dbg, err, log, wrn
 from wav_io import SAMPLE_RATE, write_wav
 
 DEFAULT_BPM = 120
@@ -65,13 +65,18 @@ def main() -> None:
 
     if args.bpm is not None:
         bpm = args.bpm
+        bpm_source = '--bpm'
     else:
-        bpm = find_tempo(text) or DEFAULT_BPM
+        found = find_tempo(text)
+        bpm = found or DEFAULT_BPM
+        bpm_source = r'\tempo' if found else 'default'
+    dbg(f'tempo: {bpm} BPM (from {bpm_source})')
 
     if args.output:
         output_path = Path(args.output)
     else:
         output_path = input_path.with_suffix('.wav')
+    dbg(f'input: {input_path}, output: {output_path}')
 
     try:
         notes = parse(text, bpm)
@@ -82,6 +87,7 @@ def main() -> None:
     if not notes:
         wrn('no notes found, writing silent WAV')
 
+    dbg(f'synthesizing with {args.synth} (gate={args.gate})')
     synth = (SYNTHESIZERS[args.synth])()
     samples = synth.synthesize(notes, SAMPLE_RATE, gate=args.gate)
     try:

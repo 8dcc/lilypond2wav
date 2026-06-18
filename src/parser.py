@@ -24,7 +24,7 @@ import ly.lex.lilypond as lyl
 import ly.pitch
 
 from notes import pitch_to_freq
-from utils import wrn
+from utils import dbg, wrn
 
 
 @dataclass
@@ -238,6 +238,7 @@ def parse(text: str, bpm: int) -> list[NoteEvent]:
     (quarter note = 1 beat). Silence is implicit (absence of notes).
     """
     spb = 60.0 / bpm  # seconds per beat
+    dbg(f'parse: {bpm} BPM, {spb:.4f}s per beat')
 
     pitch_reader = ly.pitch.pitchReader('nederlands')
     notes: list[NoteEvent] = []
@@ -250,6 +251,7 @@ def parse(text: str, bpm: int) -> list[NoteEvent]:
     current_time_s = 0.0
 
     tokens = _strip(list(ly.lex.state('lilypond').tokens(text)))
+    dbg(f'parse: {len(tokens)} tokens after strip')
     i = 0
 
     while i < len(tokens):
@@ -270,10 +272,14 @@ def parse(text: str, bpm: int) -> list[NoteEvent]:
                     pitch_reader = ly.pitch.pitchReader(lang)
                 except Exception:
                     raise ValueError(f'unknown language "{lang}"')
+                dbg(f'language set to "{lang}"')
 
         elif isinstance(t, lyl.PitchCommand) and str(t) == r'\relative':
             relative_anchor, i = _read_anchor(tokens, i, pitch_reader)
             in_relative = True
+            dbg(f'relative mode: anchor note={relative_anchor.note} '
+                f'alter={relative_anchor.alter} '
+                f'octave={relative_anchor.octave}')
 
         elif isinstance(t, lyl.PitchCommand) and str(t) == r'\key':
             # skip: Note KeySignatureMode
@@ -313,11 +319,17 @@ def parse(text: str, bpm: int) -> list[NoteEvent]:
             freqs = [pitch_to_freq(n, a, o) for n, a, o in pitches]
             dur_s = (4.0 / current_length) * (1.5 if dotted else 1.0) * spb
 
+            dbg(f'note @ {current_time_s:.3f}s: '
+                f'{[round(f, 2) for f in freqs]} Hz, '
+                f'len={current_length} dotted={dotted} dur={dur_s:.3f}s')
+
             if tie_pending:
                 tie_pending = False
                 unextended = [f for f in freqs
                               if not _try_extend(notes, f,
                                                  current_time_s, dur_s)]
+                dbg(f'tie: extended {len(freqs) - len(unextended)} of '
+                    f'{len(freqs)} pitch(es), {len(unextended)} new')
                 if unextended:
                     wrn('tie between different pitches '
                         '(slur?), treating as separate notes')
@@ -333,6 +345,8 @@ def parse(text: str, bpm: int) -> list[NoteEvent]:
             current_length, dotted, i = _read_length_dot(
                 tokens, i, current_length, dotted)
             dur_s = (4.0 / current_length) * (1.5 if dotted else 1.0) * spb
+            dbg(f'rest @ {current_time_s:.3f}s: '
+                f'len={current_length} dotted={dotted} dur={dur_s:.3f}s')
             current_time_s += dur_s
 
         elif isinstance(t, lyl.Tie):
@@ -341,6 +355,7 @@ def parse(text: str, bpm: int) -> list[NoteEvent]:
         elif not isinstance(t, _IGNORABLE):
             wrn(f'skipping unsupported token {type(t).__name__} "{t}"')
 
+    dbg(f'parse: produced {len(notes)} note event(s)')
     return notes
 
 

@@ -16,7 +16,20 @@
 # You should have received a copy of the GNU General Public License along with
 # this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import os
 import sys
+
+# Debug output is enabled when LILYPOND2WAV_DEBUG is set to a non-empty value.
+_DEBUG_ENABLED = bool(os.environ.get('LILYPOND2WAV_DEBUG'))
+
+
+def dbg(msg: str) -> None:
+    """
+    Print a debug message to stderr, but only if the
+    LILYPOND2WAV_DEBUG environment variable is set.
+    """
+    if _DEBUG_ENABLED:
+        print(f'debug: {msg}', file=sys.stderr)
 
 
 def log(msg: str) -> None:
