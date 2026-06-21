@@ -62,6 +62,18 @@ graph TD
   main --> wav_io
 #+end_src
 
+The following diagram shows the internal architecture of the parser module.
+
+#+begin_src mermaid
+graph TD
+  main(main) -.-> Parser
+  subgraph parser[" "]
+    Parser -- Owns and updates --> PitchReader
+    Parser -- Calls --> TokenCursor
+    TokenCursor -- "Calls (received from Parser)" --> PitchReader
+  end
+#+end_src
+
 The following diagram shows the high-level data flow at runtime.
 
 #+begin_src mermaid
