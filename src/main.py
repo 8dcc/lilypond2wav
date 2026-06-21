@@ -21,7 +21,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from parser import find_tempo, parse
+from parser import find_tempo, Parser
 from synth import HarmonicSynthesizer, SineSynthesizer
 from utils import dbg, err, log, wrn
 from wav_io import SAMPLE_RATE, write_wav
@@ -79,7 +79,7 @@ def main() -> None:
     dbg(f'input: {input_path}, output: {output_path}')
 
     try:
-        notes = parse(text, bpm)
+        notes = Parser(bpm).parse(text)
     except ValueError as e:
         err(str(e))
         sys.exit(1)
