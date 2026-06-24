@@ -24,7 +24,7 @@ import ly.lex.lilypond as lyl
 import ly.pitch
 
 from notes import pitch_to_freq
-from utils import dbg, wrn
+from utils import dbg, wrn, fmt_pitch
 
 
 @dataclass
@@ -354,8 +354,17 @@ class Parser:
         freqs = [pitch_to_freq(n, a, o) for n, a, o in pitches]
         dur_s = self._duration_s(state)
 
+        # For debug
+        pitch_strs = [fmt_pitch(n, a, o) for n, a, o in pitches]
+        freq_strs  = [str(round(f, 2)) for f in freqs]
+        pitch_str = (pitch_strs[0] if len(pitch_strs) > 0
+                     else '+'.join(pitch_strs))
+        freq_str = (freq_strs[0] + 'Hz' if len(freq_strs) > 0
+                    else 'Hz + '.join(freq_strs))
+
         dbg(f'note @ {cursor_s:.3f}s: '
-            f'{[round(f, 2) for f in freqs]} Hz, '
+            f'[{pitch_str}] '
+            f'[{freq_str}], '
             f'len={state.current_length} dotted={state.dotted} '
             f'dur={dur_s:.3f}s')
 
@@ -524,3 +533,4 @@ def find_tempo(text: str) -> int | None:
     """
     m = re.search(r'\\tempo\s+\d+\s*=\s*(\d+)', text)
     return int(m.group(1)) if m else None
+

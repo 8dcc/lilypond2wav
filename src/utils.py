@@ -18,6 +18,7 @@
 
 import os
 import sys
+from fractions import Fraction
 
 # Debug output is enabled when LILYPOND2WAV_DEBUG is set to a non-empty value.
 _DEBUG_ENABLED = bool(os.environ.get('LILYPOND2WAV_DEBUG'))
@@ -51,3 +52,23 @@ def err(msg: str) -> None:
     Print an error message to stderr.
     """
     print(f'error: {msg}', file=sys.stderr)
+
+
+def fmt_pitch(note_idx: int, alter: Fraction, octave: int) -> str:
+    """
+    Format a resolved pitch as an English LilyPond note name (e.g.
+    'cis'', 'bes,,').  Intended for debug output only; uses English
+    note names regardless of the active language.
+    """
+    _NOTE_NAMES = ('c', 'd', 'e', 'f', 'g', 'a', 'b')
+    name = _NOTE_NAMES[note_idx]
+    if alter == Fraction(1, 2):
+        name += 'is'
+    elif alter == Fraction(-1, 2):
+        name += 'es'
+    elif alter == Fraction(1):
+        name += 'isis'
+    elif alter == Fraction(-1):
+        name += 'eses'
+    name += "'" * octave if octave > 0 else ',' * (-octave)
+    return name
