@@ -6,7 +6,8 @@ Converts a [[https://lilypond.org][LilyPond]] source file to a WAV audio file by
 * Features
 
 - Parses a subset of LilyPond notation: single notes, chords, rests, dots,
-  ties, relative mode, key signatures, and multiple languages.
+  ties, relative mode, key signatures, multiple languages, and multiple
+  simultaneous voices or staves (=<< ... >>=).
 - Two built-in synthesizers: a sine wave synthesizer and an additive harmonic
   synthesizer (default) with an ADSR envelope for a warmer tone.
 - Tempo can be read from =\tempo= directives in the source file or overridden
