@@ -16,7 +16,7 @@
 # this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from fractions import Fraction
 
 import ly.lex
@@ -39,10 +39,10 @@ class SequenceState:
     """
     Mutable state for a single music sequence. Tracks the active note
     length, dot modifier, relative-mode anchor, and pending tie.
+    relative_anchor is None in absolute mode.
     """
     current_length: int = 4
     dotted: bool = False
-    in_relative: bool = False
     relative_anchor: ly.pitch.Pitch | None = None
     tie_pending: bool = False
 
@@ -50,13 +50,12 @@ class SequenceState:
 # Tokens that carry no musical meaning; skip silently.
 #
 # NOTE: \key c \major produces PitchCommand + Note + KeySignatureMode;
-# the \key handler consumes the Note so it never reaches the Note
-# branch. All other structural tokens are listed here.
+# the \key handler consumes the Note so it never reaches the Note branch.
+# SequentialStart/End and SimultaneousStart/End are handled structurally
+# by _parse_sequence and _parse_simultaneous; they do NOT appear here.
 _IGNORABLE = (
     ly.lex.Space,
     ly.lex.Comment,
-    lyl.SequentialStart,
-    lyl.SequentialEnd,
     lyl.PipeSymbol,
     lyl.EqualSign,
     lyl.IntegerValue,
@@ -347,7 +346,7 @@ class Parser:
             state.current_length = length
         state.dotted = dotted
 
-        if state.in_relative and state.relative_anchor is not None:
+        if state.relative_anchor is not None:
             pitches, state.relative_anchor = \
                 self.pitch_reader.resolve_relative(
                     pitches, state.relative_anchor)
@@ -363,41 +362,118 @@ class Parser:
         self._append_notes(freqs, cursor_s, dur_s, state)
         return cursor_s + dur_s
 
-    def _parse_tokens(self, cursor: TokenCursor,
-                      state: SequenceState, start_s: float = 0.0) -> float:
+    def _read_relative(self, cursor: TokenCursor, state: SequenceState,
+                       cursor_s: float) -> float:
         """
-        Parse tokens from 'cursor' starting at 'start_s'. Returns end
-        time in seconds.
+        Handle \\relative: read the optional anchor then parse the
+        following expression in relative mode. If that expression is a
+        { } block the relative scope is restored after it; otherwise
+        the anchor stays set for the rest of the current sequence.
+        Returns the end time in seconds.
+        """
+        anchor = cursor.read_anchor(self.pitch_reader)
+        saved = state.relative_anchor
+        state.relative_anchor = anchor
+        dbg(f'relative mode: anchor note={anchor.note} '
+            f'alter={anchor.alter} octave={anchor.octave}')
+
+        if isinstance(cursor.peek(), lyl.SequentialStart):
+            cursor.consume()
+            cursor_s = self._parse_sequence(cursor, state, cursor_s)
+            state.relative_anchor = saved
+
+        return cursor_s
+
+    def _parse_branch(self, cursor: TokenCursor, state: SequenceState,
+                      start_s: float) -> float:
+        """
+        Parse one branch of a << >> block starting at 'start_s'. Skips
+        leading ignorable tokens (\\new Staff, etc.), consumes an
+        optional { and delegates to _parse_sequence with at_branch=True.
+        Returns end time in seconds.
+        """
+        cursor.skip_while((lyl.New, lyl.ContextName))
+
+        if isinstance(cursor.peek(), lyl.SequentialStart):
+            cursor.consume()
+
+        return self._parse_sequence(cursor, state, start_s, at_branch=True)
+
+    def _parse_simultaneous(self, cursor: TokenCursor,
+                            state: SequenceState,
+                            start_s: float) -> float:
+        """
+        Parse a << >> block with the cursor just past SimultaneousStart.
+        Each branch is parsed independently at 'start_s' with a copy of
+        'state' (tie cleared). Returns the latest branch end time.
+        """
+        dbg(f'simultaneous block @ {start_s:.3f}s')
+        max_end = start_s
+        n_branches = 0
+
+        while not cursor.at_end() and not isinstance(
+                cursor.peek(), lyl.SimultaneousEnd):
+            if isinstance(cursor.peek(), lyl.VoiceSeparator):
+                cursor.consume()
+                continue
+
+            branch_state = replace(state, tie_pending=False)
+            end_s = self._parse_branch(cursor, branch_state, start_s)
+            max_end = max(max_end, end_s)
+            n_branches += 1
+
+        if cursor.at_end():
+            wrn('unterminated "<<" block')
+        else:
+            cursor.consume()  # consume >>
+
+        dbg(f'simultaneous: {n_branches} branch(es), end={max_end:.3f}s')
+        return max_end
+
+    def _parse_sequence(self, cursor: TokenCursor,
+                        state: SequenceState, start_s: float = 0.0,
+                        at_branch: bool = False) -> float:
+        """
+        Parse tokens from 'cursor' starting at 'start_s'. Stops at and
+        consumes a closing }. When 'at_branch' is True, also stops at
+        >> or \\ without consuming them (leaving them for the caller).
+        Returns end time in seconds.
         """
         cursor_s = start_s
 
         while not cursor.at_end():
+            t = cursor.peek()
+
+            if isinstance(t, lyl.SequentialEnd):
+                cursor.consume()
+                return cursor_s
+            if at_branch and isinstance(
+                    t, (lyl.SimultaneousEnd, lyl.VoiceSeparator)):
+                return cursor_s
+
             t = cursor.consume()
 
             if isinstance(t, lyl.Keyword) and str(t) == r'\language':
                 self._set_language(cursor)
 
             elif isinstance(t, lyl.PitchCommand) and str(t) == r'\relative':
-                state.relative_anchor = cursor.read_anchor(self.pitch_reader)
-                state.in_relative = True
-                dbg(f'relative mode: '
-                    f'anchor note={state.relative_anchor.note} '
-                    f'alter={state.relative_anchor.alter} '
-                    f'octave={state.relative_anchor.octave}')
+                cursor_s = self._read_relative(cursor, state, cursor_s)
 
             elif isinstance(t, lyl.PitchCommand) and str(t) == r'\key':
                 cursor.skip_while((lyl.Note, lyl.KeySignatureMode))
 
             elif isinstance(t, lyl.PitchCommand):
-                pass   # other PitchCommand (e.g. \trill) -- silently skip
+                pass  # e.g. \trill -- silently skip
 
             elif isinstance(t, lyl.Tempo):
                 cursor.skip_while((lyl.Length, lyl.EqualSign,
                                    lyl.IntegerValue))
 
-            elif isinstance(t, lyl.SequentialEnd) and state.in_relative:
-                state.in_relative = False
-                state.relative_anchor = None
+            elif isinstance(t, lyl.SequentialStart):
+                cursor_s = self._parse_sequence(cursor, state, cursor_s)
+
+            elif isinstance(t, lyl.SimultaneousStart):
+                cursor_s = self._parse_simultaneous(cursor, state, cursor_s)
 
             elif isinstance(t, (lyl.Note, lyl.ChordStart)):
                 cursor_s = self._emit_note(cursor, t, state, cursor_s)
@@ -435,7 +511,7 @@ class Parser:
                   if not isinstance(t, skip)]
         dbg(f'parse: {len(tokens)} tokens after strip')
 
-        self._parse_tokens(TokenCursor(tokens), SequenceState())
+        self._parse_sequence(TokenCursor(tokens), SequenceState())
 
         self.notes.sort(key=lambda n: n.start_s)
         dbg(f'parse: produced {len(self.notes)} note event(s)')
